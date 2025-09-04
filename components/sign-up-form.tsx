@@ -15,6 +15,8 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { CameraCapture } from "@/components/camera-capture";
+import { uploadProfileImage, updateUserProfile } from "@/lib/image-upload";
 
 export function SignUpForm({
   className,
@@ -25,7 +27,12 @@ export function SignUpForm({
   const [repeatPassword, setRepeatPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const router = useRouter();
+
+  const handleImageCapture = (imageData: string) => {
+    setProfileImage(imageData);
+  };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,14 +47,33 @@ export function SignUpForm({
     }
 
     try {
-      const { error } = await supabase.auth.signUp({
+      // Sign up the user
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/confirm?next=/protected`,
         },
       });
-      if (error) throw error;
+      
+      if (signUpError) throw signUpError;
+
+      // If signup successful and we have a profile image, upload it
+      if (data.user && profileImage) {
+        try {
+          // Upload the profile image
+          const imageUrl = await uploadProfileImage(profileImage, data.user.id);
+          
+          if (imageUrl) {
+            // Update the user profile with the image URL
+            await updateUserProfile(data.user.id, imageUrl);
+          }
+        } catch (uploadError) {
+          console.error("Profile image upload failed:", uploadError);
+          // Don't fail the signup if image upload fails
+        }
+      }
+
       router.push("/auth/sign-up-success");
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");
@@ -101,6 +127,18 @@ export function SignUpForm({
                   onChange={(e) => setRepeatPassword(e.target.value)}
                 />
               </div>
+              
+              {/* Profile Picture Section */}
+              <div className="grid gap-2">
+                <Label>Profile Picture (Optional)</Label>
+                <CameraCapture onCapture={handleImageCapture} />
+                {profileImage && (
+                  <p className="text-sm text-green-600">
+                    ✓ Profile picture captured successfully
+                  </p>
+                )}
+              </div>
+
               {error && <p className="text-sm text-red-500">{error}</p>}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Creating an account..." : "Sign up"}

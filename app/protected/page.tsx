@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
-
 import { createClient } from "@/lib/supabase/server";
-import { InfoIcon } from "lucide-react";
-import { FetchDataSteps } from "@/components/tutorial/fetch-data-steps";
+import { LogoutButton } from "@/components/logout-button";
+import Link from "next/link";
 
 export default async function ProtectedPage() {
   const supabase = await createClient();
@@ -12,24 +11,58 @@ export default async function ProtectedPage() {
     redirect("/auth/login");
   }
 
+  // Fetch user profile data
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('avatar_url, full_name')
+    .eq('id', data.claims.sub)
+    .single();
+
   return (
-    <div className="flex-1 w-full flex flex-col gap-12">
-      <div className="w-full">
-        <div className="bg-accent text-sm p-3 px-5 rounded-md text-foreground flex gap-3 items-center">
-          <InfoIcon size="16" strokeWidth={2} />
-          This is a protected page that you can only see as an authenticated
-          user
+    <div className="min-h-screen flex flex-col items-center">
+      <div className="flex-1 w-full flex flex-col gap-12 max-w-5xl p-5">
+        <nav className="w-full flex justify-center border-b border-b-foreground/10 h-16">
+          <div className="w-full max-w-5xl flex justify-between items-center p-3 px-5 text-sm">
+            <Link href="/" className="font-semibold">
+              My App
+            </Link>
+            <LogoutButton />
+          </div>
+        </nav>
+        
+        <div className="flex-1 flex flex-col gap-8">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold mb-4">Protected Page</h1>
+            <p className="text-lg text-muted-foreground">
+              Welcome! You are now signed in.
+            </p>
+          </div>
+          
+          {/* Profile Section */}
+          <div className="bg-accent p-6 rounded-lg">
+            <h2 className="font-bold text-xl mb-4">Your Profile</h2>
+            <div className="flex items-center gap-6">
+              <div className="space-y-2">
+                <p><strong>Email:</strong> {data.claims.email}</p>
+                <p><strong>Full Name:</strong> {profile?.full_name || 'Not set'}</p>
+                <p><strong>User ID:</strong> {data.claims.sub}</p>
+                <p><strong>Signed up:</strong> {new Date(data.claims.iat * 1000).toLocaleDateString()}</p>
+                {profile?.avatar_url && (
+                  <p className="text-green-600 text-sm">✓ Profile picture uploaded</p>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="text-center">
+            <Link 
+              href="/" 
+              className="text-blue-600 hover:underline"
+            >
+              ← Back to Home
+            </Link>
+          </div>
         </div>
-      </div>
-      <div className="flex flex-col gap-2 items-start">
-        <h2 className="font-bold text-2xl mb-4">Your user details</h2>
-        <pre className="text-xs font-mono p-3 rounded border max-h-32 overflow-auto">
-          {JSON.stringify(data.claims, null, 2)}
-        </pre>
-      </div>
-      <div>
-        <h2 className="font-bold text-2xl mb-4">Next steps</h2>
-        <FetchDataSteps />
       </div>
     </div>
   );
